@@ -1,4 +1,4 @@
-const personalizer = Personalizer(user = { name: 'fred' })
+const personalizer = Personalizer({ name: 'fred' })
 personalizer.createScope('paywall')
 
 personalizer
@@ -30,7 +30,7 @@ personalizer
     shouldInsert: (user) => {
       return user.name === 'fred'
     },
-    insert: () => {
+    insert: (user) => {
       console.log(`inserted ${user.name} on the paywall scope`)
     }
   })
@@ -61,42 +61,39 @@ function Personalizer(user = {}) {
       insert = () => { },
       priority = null
     }) {
-      add([shouldInsert.bind(this, user), insert.bind(this, user)], priority);
+      scenarios = add(scenarios,
+        [shouldInsert.bind(this, user), insert.bind(this, user)],
+        priority);
       return this
     },
     get scenarios() {
       return scenarios
     },
-    run: function (func) {
-      run(func)
-      return this;
-    }
+    run
   }
 
   function run() {
+
+    // run scenarios on the global scope
     scenarios.forEach((scenario) => {
       const [shouldShow = () => false,
         show = () => { }] = scenario
       shouldShow() && show()
+    })
+
+    // run scenarios for each scope
+    scopes.forEach((scope) => {
+      const scen = scope.scenarios.find((scenario = []) => {
+        const [shouldShow = () => false] = scenario
+        return shouldShow()
+      })
+      scen && scen[1]()
     })
   }
 
   function Scope(name = '') {
 
     let scenarios = [];
-
-    function add(scen = [() => false, () => { }], priority = null) {
-      //console.log(scen)
-      scenarios = (priority === null) ? pushScenario(scen) : insertScenario(scen, priority)
-    }
-
-    // run the first scenario that evaluates as true.
-    function run() {
-      scenarios.find((scenario = []) => {
-        const [shouldShow = () => false] = scenario
-        return shouldShow()
-      })[1]()
-    }
 
     return {
       add: function ({
@@ -106,7 +103,10 @@ function Personalizer(user = {}) {
       }) {
         // @todo: should we also bind `scenarios` to `shouldInsert`
         // function here to give scenarios more awareness of each other?
-        add([shouldInsert.bind(this, user), insert.bind(this, user)], priority);
+        scenarios = add(scenarios,
+          [shouldInsert.bind(this, user),
+          insert.bind(this, user)],
+          priority);
         return this
       },
       get name() {
@@ -115,30 +115,26 @@ function Personalizer(user = {}) {
       get scenarios() {
         return scenarios
       },
-      run: function () {
-        run()
-        return this;
-      }
+      run
     }
   }
 
-  function add(scen = [() => false, () => { }], priority = null) {
-    //console.log(scen)
-    scenarios = (priority === null) ? pushScenario(scen) : insertScenario(scen, priority)
+  function add(agg = [], scen = [() => false, () => { }], priority = null) {
+    return (priority === null) ? pushScenario(agg, scen) : insertScenario(agg, scen, priority)
   }
 
   function scope(name) {
     return scopes.find((scope) => scope.name === name)
   }
 
-  function pushScenario(scen = () => false) {
-    scenarios.push(scen)
-    return scenarios
+  function pushScenario(agg = [], scen = () => false) {
+    agg.push(scen)
+    return agg
   }
 
-  function insertScenario(scen = () => false, priority = 0) {
-    scenarios = scenarios.splice(priority, 0, scen)
-    return scenarios
+  function insertScenario(agg = [], scen = () => false, priority = 0) {
+    agg = agg.splice(priority, 0, scen)
+    return agg
   }
 
   function createScope(name) {
