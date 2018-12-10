@@ -2,50 +2,36 @@ const personalizer = Personalizer({ name: 'fred' })
 personalizer.createScope('paywall')
 
 personalizer
+  .add((user) => {
+    console.log(`inserted ${user.name} second; priority: 1`)
+  }, 1)
+  .add((user) => {
+    console.log(`inserted ${user.name} first; priority: 10`)
+  }, 10)
 
-  // since shouldInsert evaluates to false, should not insert
-  .add({
-    shouldInsert: (user) => {
-      return user.name === 'tony'
-    },
-    insert: (user) => {
-      console.log('should not insert')
-    }
-  })
 
-  // since shouldInsert evaluates to true, should run insert logic
-  .add({
-    shouldInsert: (user) => {
-      return user.name === 'fred'
-    },
-    insert: (user) => {
-      console.log(`inserted ${user.name} yay`)
-    }
-  })
   // change scope
   .scope('paywall')
 
-  // the first one to evaulate to true wins
-  .add({
-    shouldInsert: (user) => {
-      return user.name === 'fred'
-    },
-    insert: (user) => {
-      console.log(`inserted ${user.name} on the paywall scope`)
+  // should run second
+  .add((user, end) => {
+    if (true) {
+      console.log(`inserted ${user.name} on the paywall scope; priority: 15`)
     }
-  })
-  .add({
-    shouldInsert: (user) => {
-      return user.name === 'fred'
-    },
-    insert: () => {
-      console.log('no inserty')
-    }
-  })
+  }, 15)
+  // should run first
+  .add((user, end) => {
+    console.log(`inserted ${user.name} on the paywall scope; pirority: 10`)
+    end()
+  }, 10)
+
+  // since end was called, should not run at all
+  .add((user) => {
+    console.log('no runny! 💀💀💀💀💀💀💀💀')
+  }, 1)
 
   // run the scenarios
   .run()
-
 
 
 function Personalizer(user = {}) {
@@ -56,13 +42,9 @@ function Personalizer(user = {}) {
   return {
     createScope,
     scope,
-    add: function ({
-      shouldInsert = () => { },
-      insert = () => { },
-      priority = null
-    }) {
+    add: function (scenario = () => { }, priority = null) {
       scenarios = add(scenarios,
-        [shouldInsert.bind(this, user), insert.bind(this, user)],
+        scenario.bind(this, user),
         priority);
       return this
     },
@@ -75,37 +57,30 @@ function Personalizer(user = {}) {
   function run() {
 
     // run scenarios on the global scope
-    scenarios.forEach((scenario) => {
-      const [shouldShow = () => false,
-        show = () => { }] = scenario
-      shouldShow() && show()
-    })
+    scenarios.reverse().forEach((scenario) => scenario())
 
-    // run scenarios for each scope
     scopes.forEach((scope) => {
-      const scen = scope.scenarios.find((scenario = []) => {
-        const [shouldShow = () => false] = scenario
-        return shouldShow()
+      scope.scenarios.reverse();
+
+      scope.scenarios.forEach((scenario) => {
+        scope.closed || scenario()
       })
-      scen && scen[1]()
     })
   }
 
   function Scope(name = '') {
 
-    let scenarios = [];
+    let scenarios = [],
+      closed = false;
+
+    function end() {
+      closed = true;
+    }
 
     return {
-      add: function ({
-        shouldInsert = () => { },
-        insert = () => { },
-        priority = null
-      }) {
-        // @todo: should we also bind `scenarios` to `shouldInsert`
-        // function here to give scenarios more awareness of each other?
+      add: function (scenario = () => { }, priority = null) {
         scenarios = add(scenarios,
-          [shouldInsert.bind(this, user),
-          insert.bind(this, user)],
+          scenario.bind(this, user, end),
           priority);
         return this
       },
@@ -115,25 +90,31 @@ function Personalizer(user = {}) {
       get scenarios() {
         return scenarios
       },
-      run
+      run,
+      scope,
+      get closed() {
+        return closed
+      }
     }
   }
 
-  function add(agg = [], scen = [() => false, () => { }], priority = null) {
-    return (priority === null) ? pushScenario(agg, scen) : insertScenario(agg, scen, priority)
+  function add(agg = [], scen = () => { }, priority = null) {
+    return (priority === null) ? pushScenario(agg, scen) :
+      insertScenario(agg, scen, priority)
   }
 
   function scope(name) {
     return scopes.find((scope) => scope.name === name)
   }
 
-  function pushScenario(agg = [], scen = () => false) {
+  function pushScenario(agg = [], scen = () => { }) {
     agg.push(scen)
     return agg
   }
 
-  function insertScenario(agg = [], scen = () => false, priority = 0) {
-    agg = agg.splice(priority, 0, scen)
+  function insertScenario(agg = [], scen = () => { }, priority = 0) {
+    // @todo if space occupied, use splice
+    agg[priority] = scen
     return agg
   }
 
