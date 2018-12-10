@@ -24,7 +24,7 @@ personalizer
     close()
   }, 10)
 
-  // since end was called, should not run at all
+  // since close was called, should not run at all
   .add((user) => {
     console.log('no runny! 💀💀💀💀💀💀💀💀')
   }, 1)
