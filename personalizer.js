@@ -1,5 +1,4 @@
 const personalizer = Personalizer({ name: 'fred' })
-personalizer.createScope('paywall')
 
 personalizer
   .add((user) => {
@@ -104,7 +103,7 @@ function Personalizer(user = {}) {
   }
 
   function scope(name) {
-    return scopes.find((scope) => scope.name === name)
+    return scopes.find((scope) => scope.name === name) || createScope(name)
   }
 
   function pushScenario(agg = [], scen = () => { }) {
@@ -119,6 +118,8 @@ function Personalizer(user = {}) {
   }
 
   function createScope(name) {
-    scopes.push(Scope(name))
+    const newScope = Scope(name)
+    scopes.push(newScope)
+    return newScope;
   }
 }
