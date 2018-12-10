@@ -13,15 +13,15 @@ personalizer
   .scope('paywall')
 
   // should run second
-  .add((user, end) => {
+  .add((user, close) => {
     if (true) {
       console.log(`inserted ${user.name} on the paywall scope; priority: 15`)
     }
   }, 15)
   // should run first
-  .add((user, end) => {
+  .add((user, close) => {
     console.log(`inserted ${user.name} on the paywall scope; pirority: 10`)
-    end()
+    close()
   }, 10)
 
   // since end was called, should not run at all
@@ -72,14 +72,14 @@ function Personalizer(user = {}) {
     let scenarios = [],
       closed = false;
 
-    function end() {
+    function close() {
       closed = true;
     }
 
     return {
       add: function (scenario = () => { }, priority = null) {
         scenarios = add(scenarios,
-          scenario.bind(this, user, end),
+          scenario.bind(this, user, close),
           priority);
         return this
       },
